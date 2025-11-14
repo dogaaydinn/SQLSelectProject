@@ -1,0 +1,77 @@
+[flake8]
+# Maximum line length
+max-line-length = 100
+
+# Maximum complexity
+max-complexity = 15
+
+# Exclude patterns
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    build,
+    dist,
+    migrations,
+    *.egg-info,
+    .mypy_cache,
+    .pytest_cache,
+    htmlcov,
+    .tox
+
+# Error codes to ignore
+ignore =
+    E203,  # Whitespace before ':' (conflicts with black)
+    E266,  # Too many leading '#' for block comment
+    E501,  # Line too long (handled by black)
+    W503,  # Line break before binary operator (conflicts with black)
+    W504,  # Line break after binary operator
+    E402,  # Module level import not at top of file (sometimes needed)
+    F401,  # Module imported but unused (handled by other tools)
+
+# Select specific error codes
+select =
+    E,    # pycodestyle errors
+    W,    # pycodestyle warnings
+    F,    # pyflakes
+    C,    # mccabe complexity
+    N,    # pep8-naming
+
+# Per-file ignores
+per-file-ignores =
+    __init__.py:F401,E402
+    tests/*:E501,F811,F401
+    conftest.py:E501
+
+# Show source code for each error
+show-source = True
+
+# Show statistics for each error code
+statistics = True
+
+# Count errors
+count = True
+
+# Output format
+format = %(path)s:%(row)d:%(col)d: %(code)s %(text)s
+
+# Extend default ignore with project specific
+extend-ignore =
+    E722,  # Do not use bare except (sometimes needed)
+
+# Enable optional checks
+enable-extensions =
+    G,  # flake8-logging-format
+
+# McCabe complexity threshold
+max-complexity = 15
+
+# Naming conventions
+inline-quotes = double
+docstring-convention = google
+
+# String formatting
+# Use % formatting, .format(), or f-strings
+# no-implicit-concat = True

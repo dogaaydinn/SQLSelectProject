@@ -5,63 +5,24 @@ Complete CRUD operations for salaries
 
 from datetime import date
 from typing import List, Optional
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc
-from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.models.salary import Salary
 from app.models.employee import Employee
 from app.schemas.employee import PaginatedResponse
+from app.schemas.salary import (
+    SalaryCreate,
+    SalaryUpdate,
+    SalaryResponse,
+    SalaryWithEmployee,
+)
 from app.utils.cache import cached, cache_manager
 
 router = APIRouter()
-
-
-# Pydantic schemas for Salary
-class SalaryBase(BaseModel):
-    salary: Decimal = Field(..., gt=0, decimal_places=2)
-    currency: str = Field(default="USD", min_length=3, max_length=3)
-    from_date: date
-    to_date: date = date(9999, 12, 31)
-    salary_type: str = Field(default="Base", max_length=50)
-    bonus: Optional[Decimal] = Field(default=Decimal(0), ge=0, decimal_places=2)
-    commission: Optional[Decimal] = Field(default=Decimal(0), ge=0, decimal_places=2)
-
-
-class SalaryCreate(SalaryBase):
-    emp_no: int
-
-
-class SalaryUpdate(BaseModel):
-    salary: Optional[Decimal] = Field(None, gt=0, decimal_places=2)
-    currency: Optional[str] = Field(None, min_length=3, max_length=3)
-    from_date: Optional[date] = None
-    to_date: Optional[date] = None
-    salary_type: Optional[str] = Field(None, max_length=50)
-    bonus: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
-    commission: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
-
-
-class SalaryResponse(SalaryBase):
-    id: int
-    emp_no: int
-    uuid: str
-    created_at: str
-    updated_at: str
-    version: int
-    is_deleted: bool
-
-    class Config:
-        from_attributes = True
-
-
-class SalaryWithEmployee(SalaryResponse):
-    employee_name: str
-    employee_email: Optional[str] = None
 
 
 @router.get("/", response_model=PaginatedResponse)
