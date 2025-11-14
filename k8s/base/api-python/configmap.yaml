@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  labels:
+    app: api-python
+data:
+  # Application Configuration
+  project-name: "Enterprise Employee Management System"
+  api-version: "/api/v1"
+
+  # Server Configuration
+  workers: "4"
+  timeout: "60"
+  keepalive: "5"
+
+  # CORS Configuration
+  cors-origins: "*"
+  cors-allow-credentials: "true"
+  cors-allow-methods: "GET,POST,PUT,DELETE,PATCH"
+  cors-allow-headers: "*"
+
+  # Cache Configuration
+  cache-ttl: "300"
+  cache-max-size: "1000"
+
+  # Rate Limiting
+  rate-limit-per-minute: "60"
+
+  # Logging
+  log-format: "json"
+  log-level: "INFO"
+
+  # Feature Flags
+  enable-docs: "true"
+  enable-metrics: "true"
+  enable-tracing: "true"
+
+  # Performance
+  max-connections: "100"
+  max-overflow: "20"
+  pool-size: "10"
+  pool-recycle: "3600"

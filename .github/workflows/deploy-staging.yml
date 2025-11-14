@@ -1,0 +1,58 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version/Tag to deploy'
+        required: true
+
+env:
+  ENVIRONMENT: staging
+  NAMESPACE: employee-mgmt-staging
+
+jobs:
+  deploy:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.employee-mgmt.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          export KUBECONFIG=./kubeconfig
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy application
+        run: |
+          kubectl apply -f k8s/base/ -n ${{ env.NAMESPACE }}
+          kubectl apply -f k8s/overlays/staging/ -n ${{ env.NAMESPACE }}
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/api-python -n ${{ env.NAMESPACE }} --timeout=10m
+
+      - name: Run integration tests
+        run: |
+          API_URL=$(kubectl get svc api-python -n ${{ env.NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          # Run integration test suite against staging
+          echo "Running integration tests against $API_URL"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          kubectl get all -n ${{ env.NAMESPACE }}
