@@ -99,6 +99,12 @@ repos:
       - id: python-safety-dependencies-check
         files: requirements\.txt$
 
+  # Check for vulnerabilities in the installed environment
+  - repo: https://github.com/pypa/pip-audit
+    rev: v2.7.2
+    hooks:
+      - id: pip-audit
+        args: [--strict]
   # Upgrade Python syntax
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.15.0
