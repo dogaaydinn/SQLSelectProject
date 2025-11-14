@@ -75,7 +75,7 @@ class TestConcurrentRequests:
         assert elapsed < 5.0
         # Calculate requests per second
         rps = num_requests / elapsed
-        assert rps > 10  # At least 10 requests per second
+        assert rps > 100  # At least 100 requests per second
 
     async def test_concurrent_employee_reads(self, client: AsyncClient, test_employee):
         """Test concurrent employee read operations."""
