@@ -1,0 +1,206 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Force batch scripts to always use CRLF line endings so that if a repo is accessed
+# in Windows via a file share from Linux, the scripts will work
+*.{cmd,[cC][mM][dD]} text eol=crlf
+*.{bat,[bB][aA][tT]} text eol=crlf
+
+# Force bash scripts to always use LF line endings so that if a repo is accessed
+# in Unix via a file share from Windows, the scripts will work
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Text files
+*.txt text
+*.md text
+*.adoc text
+*.textile text
+*.mustache text
+*.csv text
+*.tab text
+*.tsv text
+*.sql text
+*.properties text
+
+# Source code
+*.{c,cc,cxx,cpp,h,hpp,hxx} text diff=cpp
+*.{cs,cshtml,csx} text diff=csharp
+*.css text diff=css
+*.html text diff=html
+*.java text diff=java
+*.js text diff=javascript
+*.jsx text diff=javascript
+*.ts text diff=typescript
+*.tsx text diff=typescript
+*.json text
+*.py text diff=python
+*.rb text diff=ruby
+*.rs text diff=rust
+*.go text diff=golang
+*.php text diff=php
+*.pl text diff=perl
+*.xml text
+*.yaml text
+*.yml text
+*.toml text
+
+# Documentation
+*.markdown text
+*.md text
+*.mdwn text
+*.mdown text
+*.mkd text
+*.mkdn text
+*.mdtxt text
+*.mdtext text
+*.txt text
+AUTHORS text
+CHANGELOG text
+CHANGES text
+CONTRIBUTING text
+COPYING text
+copyright text
+*COPYRIGHT* text
+INSTALL text
+license text
+LICENSE text
+NEWS text
+readme text
+*README* text
+TODO text
+
+# Configuration files
+*.cnf text
+*.cfg text
+*.conf text
+*.config text
+*.ini text
+*.prefs text
+.editorconfig text
+.gitattributes text
+.gitconfig text
+.gitignore text
+.htaccess text
+
+# Build files
+*.cmake text
+CMakeLists.txt text
+Makefile text
+makefile text
+GNUmakefile text
+*.mk text
+*.mak text
+
+# Docker files
+Dockerfile text
+*.dockerfile text
+docker-compose.yml text
+
+# Scripts
+*.bash text eol=lf
+*.fish text eol=lf
+*.sh text eol=lf
+*.zsh text eol=lf
+*.ps1 text eol=crlf
+
+# Graphics
+*.ai binary
+*.bmp binary
+*.eps binary
+*.gif binary
+*.gifv binary
+*.ico binary
+*.jng binary
+*.jp2 binary
+*.jpg binary
+*.jpeg binary
+*.jpx binary
+*.jxr binary
+*.pdf binary
+*.png binary
+*.psb binary
+*.psd binary
+*.svg text
+*.svgz binary
+*.tif binary
+*.tiff binary
+*.wbmp binary
+*.webp binary
+
+# Audio
+*.kar binary
+*.m4a binary
+*.mid binary
+*.midi binary
+*.mp3 binary
+*.ogg binary
+*.ra binary
+
+# Video
+*.3gpp binary
+*.3gp binary
+*.as binary
+*.asf binary
+*.asx binary
+*.fla binary
+*.flv binary
+*.m4v binary
+*.mng binary
+*.mov binary
+*.mp4 binary
+*.mpeg binary
+*.mpg binary
+*.ogv binary
+*.swc binary
+*.swf binary
+*.webm binary
+
+# Archives
+*.7z binary
+*.gz binary
+*.jar binary
+*.rar binary
+*.tar binary
+*.zip binary
+
+# Fonts
+*.ttf binary
+*.eot binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Executables
+*.exe binary
+*.pyc binary
+*.class binary
+
+# Machine Learning / NVIDIA
+*.onnx binary
+*.pt binary
+*.pth binary
+*.h5 binary
+*.pb binary
+*.tflite binary
+*.caffemodel binary
+*.npy binary
+*.npz binary
+*.pkl binary
+*.pickle binary
+
+# Database
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.mdb binary
+*.accdb binary
+
+# Other binaries
+*.dll binary
+*.so binary
+*.dylib binary
+*.a binary
+*.lib binary
+*.o binary
+*.obj binary
