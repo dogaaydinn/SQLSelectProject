@@ -7,60 +7,20 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
-from decimal import Decimal
 
 from app.core.database import get_db
 from app.models.department import Department
 from app.models.dept_emp import DeptEmp
 from app.schemas.employee import PaginatedResponse
+from app.schemas.department import (
+    DepartmentCreate,
+    DepartmentUpdate,
+    DepartmentResponse,
+    DepartmentStatistics,
+)
 from app.utils.cache import cached, cache_manager
-from pydantic import BaseModel, Field
 
 router = APIRouter()
-
-
-# Pydantic schemas for Department
-class DepartmentBase(BaseModel):
-    dept_name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
-    manager_emp_no: Optional[int] = None
-    budget: Optional[Decimal] = None
-    location: Optional[str] = None
-    is_active: bool = True
-
-
-class DepartmentCreate(DepartmentBase):
-    dept_no: str = Field(..., min_length=4, max_length=4, pattern=r"^d\d{3}$")
-
-
-class DepartmentUpdate(BaseModel):
-    dept_name: Optional[str] = Field(None, min_length=1, max_length=100)
-    description: Optional[str] = None
-    manager_emp_no: Optional[int] = None
-    budget: Optional[Decimal] = None
-    location: Optional[str] = None
-    is_active: Optional[bool] = None
-
-
-class DepartmentResponse(DepartmentBase):
-    dept_no: str
-    uuid: str
-    created_at: str
-    updated_at: str
-    version: int
-    is_deleted: bool
-
-    class Config:
-        from_attributes = True
-
-
-class DepartmentStatistics(BaseModel):
-    dept_no: str
-    dept_name: str
-    employee_count: int
-    avg_salary: Optional[Decimal] = None
-    budget: Optional[Decimal] = None
-    budget_utilization: Optional[float] = None
 
 
 @router.get("/", response_model=PaginatedResponse)

@@ -4,72 +4,29 @@ Provides statistical analysis and aggregations
 """
 
 from datetime import date, datetime
-from decimal import Decimal
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, case
-from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.models.employee import Employee, EmploymentStatus
 from app.models.department import Department
 from app.models.salary import Salary
 from app.models.dept_emp import DeptEmp
+from app.schemas.analytics import (
+    SalaryStatistics,
+    SalaryDistribution,
+    DepartmentPerformance,
+    EmployeeTrends,
+    GenderDiversity,
+    TitleDistribution,
+    AnalyticsSummary,
+)
 from app.utils.cache import cached, cache_manager
 
 router = APIRouter()
-
-
-# Pydantic schemas for Analytics
-class SalaryStatistics(BaseModel):
-    total_employees: int
-    avg_salary: Optional[Decimal] = None
-    min_salary: Optional[Decimal] = None
-    max_salary: Optional[Decimal] = None
-    median_salary: Optional[Decimal] = None
-    total_payroll: Optional[Decimal] = None
-    std_deviation: Optional[float] = None
-
-
-class SalaryDistribution(BaseModel):
-    salary_range: str
-    count: int
-    percentage: float
-
-
-class DepartmentPerformance(BaseModel):
-    dept_no: str
-    dept_name: str
-    employee_count: int
-    avg_salary: Optional[Decimal] = None
-    total_payroll: Optional[Decimal] = None
-    budget: Optional[Decimal] = None
-    budget_utilization: Optional[float] = None
-    avg_tenure_days: Optional[float] = None
-
-
-class EmployeeTrends(BaseModel):
-    period: str
-    new_hires: int
-    terminations: int
-    net_change: int
-    total_employees: int
-
-
-class GenderDiversity(BaseModel):
-    gender: str
-    count: int
-    percentage: float
-    avg_salary: Optional[Decimal] = None
-
-
-class TitleDistribution(BaseModel):
-    title: str
-    count: int
-    percentage: float
-    avg_salary: Optional[Decimal] = None
 
 
 @router.get("/salary-statistics", response_model=SalaryStatistics)
