@@ -5,7 +5,7 @@ Tests custom middleware for request handling, timing, and error handling
 
 import pytest
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
 
