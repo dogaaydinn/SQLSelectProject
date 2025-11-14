@@ -7,7 +7,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from app.models.employee import Employee, EmploymentStatus, Gender
+from app.models.employee import Employee
 
 
 @pytest.mark.integration
