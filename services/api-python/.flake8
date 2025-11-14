@@ -74,4 +74,4 @@ docstring-convention = google
 
 # String formatting
 # Use % formatting, .format(), or f-strings
-# no-implicit-concat = True
+no-implicit-concat = True
