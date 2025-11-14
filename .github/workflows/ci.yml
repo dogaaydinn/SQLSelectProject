@@ -1,0 +1,270 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, claude/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # CODE QUALITY
+  # ============================================
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        cd services/api-python
+        pip install -r requirements.txt
+        pip install black flake8 mypy isort
+
+    - name: Check code formatting (black)
+      run: |
+        cd services/api-python
+        black --check app/
+
+    - name: Check import sorting (isort)
+      run: |
+        cd services/api-python
+        isort --check app/
+
+    - name: Lint with flake8
+      run: |
+        cd services/api-python
+        flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Type check with mypy
+      run: |
+        cd services/api-python
+        mypy app/ --ignore-missing-imports || true
+
+  # ============================================
+  # SECURITY SCANNING
+  # ============================================
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install safety
+      run: pip install safety bandit
+
+    - name: Check for security vulnerabilities
+      run: |
+        cd services/api-python
+        safety check --json || true
+
+    - name: Run bandit security linter
+      run: |
+        cd services/api-python
+        bandit -r app/ -f json || true
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+  # ============================================
+  # TESTING
+  # ============================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: employees_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        cd services/api-python
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+
+    - name: Run database migrations
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/employees_test
+      run: |
+        PGPASSWORD=postgres psql -h localhost -U postgres -d employees_test < database/migrations/V1__create_schema.sql
+        PGPASSWORD=postgres psql -h localhost -U postgres -d employees_test < database/migrations/V2__create_functions_and_triggers.sql
+        PGPASSWORD=postgres psql -h localhost -U postgres -d employees_test < database/migrations/V3__create_views_and_materialized_views.sql
+        PGPASSWORD=postgres psql -h localhost -U postgres -d employees_test < database/migrations/V4__create_indexes_and_optimization.sql
+
+    - name: Run tests with coverage
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/employees_test
+        REDIS_URL: redis://localhost:6379/0
+        JWT_SECRET: test-secret-key
+      run: |
+        cd services/api-python
+        pytest --cov=app --cov-report=xml --cov-report=html --cov-report=term
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./services/api-python/coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Archive coverage results
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-report
+        path: services/api-python/htmlcov/
+
+  # ============================================
+  # BUILD DOCKER IMAGES
+  # ============================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [code-quality, security, test]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          dogaaydinn/sqlselect-api-python
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+
+    - name: Build and push FastAPI image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/api-python
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # ============================================
+  # DEPLOY (Only on main branch)
+  # ============================================
+  deploy-dev:
+    name: Deploy to Development
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/develop'
+    environment: development
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to development
+      run: |
+        echo "Deploying to development environment..."
+        # Add deployment steps here
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add deployment steps here
+
+  # ============================================
+  # NOTIFICATIONS
+  # ============================================
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [code-quality, security, test, build]
+    if: always()
+
+    steps:
+    - name: Notify on success
+      if: success()
+      run: echo "✅ Build successful!"
+
+    - name: Notify on failure
+      if: failure()
+      run: echo "❌ Build failed!"

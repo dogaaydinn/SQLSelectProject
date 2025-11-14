@@ -230,7 +230,10 @@ site/
 *.h5
 *.pb
 *.tflite
-models/
+# models/  # Commented out to allow app/models for ORM
+ml_models/
+saved_models/
+trained_models/
 checkpoints/
 tensorboard_logs/
 mlruns/
