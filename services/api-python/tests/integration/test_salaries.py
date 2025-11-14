@@ -5,7 +5,6 @@ Tests all CRUD operations, validation, and employee salary history
 
 import pytest
 from datetime import date, timedelta
-from decimal import Decimal
 from httpx import AsyncClient
 from sqlalchemy import select
 
