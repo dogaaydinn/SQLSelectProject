@@ -8,7 +8,6 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock
 from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
-from starlette.middleware.base import RequestResponseEndpoint
 
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.timing import TimingMiddleware
