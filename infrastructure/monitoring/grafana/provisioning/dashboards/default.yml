@@ -1,0 +1,16 @@
+# Grafana Dashboard Provisioning Configuration
+# Auto-load dashboards from filesystem
+
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: 'Employee Management System'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: true

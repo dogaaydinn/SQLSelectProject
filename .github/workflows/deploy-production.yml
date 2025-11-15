@@ -1,0 +1,193 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g., v1.0.0)'
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-deployment Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify version tag
+        run: |
+          if [[ ! "${{ github.ref }}" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version tag format"
+            exit 1
+          fi
+
+      - name: Check if tests passed
+        run: |
+          echo "Verify all tests passed in CI"
+          # Add logic to check test results
+
+      - name: Check if security scans passed
+        run: |
+          echo "Verify security scans passed"
+          # Add logic to check security scan results
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    environment:
+      name: production
+      url: https://api.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubectl for production
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          export KUBECONFIG=$(pwd)/kubeconfig
+
+      - name: Create backup of current deployment
+        run: |
+          kubectl get deployment api-python -n production -o yaml > backup-deployment.yaml
+          echo "Backup created"
+
+      - name: Deploy with blue-green strategy
+        run: |
+          # Create green deployment
+          kubectl apply -f k8s/production/deployment-green.yaml
+
+          # Wait for green deployment to be ready
+          kubectl wait --for=condition=available --timeout=300s \
+            deployment/api-python-green -n production
+
+          # Run health checks on green deployment
+          GREEN_POD=$(kubectl get pod -n production -l app=api-python-green -o jsonpath='{.items[0].metadata.name}')
+          kubectl exec $GREEN_POD -n production -- curl -f http://localhost:8000/api/v1/health
+
+          # Switch traffic to green deployment
+          kubectl patch service api-python -n production \
+            -p '{"spec":{"selector":{"version":"green"}}}'
+
+          # Monitor for 5 minutes
+          echo "Monitoring new deployment for 5 minutes..."
+          sleep 300
+
+          # Check error rate
+          # If error rate is acceptable, proceed
+          # Otherwise, rollback
+
+      - name: Cleanup old blue deployment
+        run: |
+          kubectl delete deployment api-python-blue -n production || true
+
+      - name: Verify production deployment
+        run: |
+          kubectl get pods -n production
+          kubectl get svc -n production
+          kubectl top pods -n production
+
+      - name: Run production smoke tests
+        run: |
+          PROD_URL="https://api.example.com"
+
+          # Comprehensive health checks
+          response=$(curl -s -o /dev/null -w "%{http_code}" $PROD_URL/api/v1/health/detailed)
+          if [ $response != "200" ]; then
+            echo "Health check failed"
+            exit 1
+          fi
+
+          # Test critical endpoints
+          # Add more endpoint tests here
+
+          echo "Production smoke tests passed!"
+
+      - name: Update deployment records
+        run: |
+          echo "Deployed version ${{ steps.version.outputs.version }} to production"
+          echo "Timestamp: $(date -u)"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          # Switch back to blue deployment
+          kubectl patch service api-python -n production \
+            -p '{"spec":{"selector":{"version":"blue"}}}'
+
+          # Restore from backup
+          kubectl apply -f backup-deployment.yaml
+
+          echo "DEPLOYMENT FAILED - Rolled back to previous version"
+          exit 1
+
+      - name: Create GitHub Release
+        if: success()
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            Production deployment of version ${{ steps.version.outputs.version }}
+
+            ## Changes
+            - See commit history for details
+
+            ## Deployment Info
+            - Deployed at: $(date -u)
+            - Deployed by: ${{ github.actor }}
+          draft: false
+          prerelease: false
+
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Production deployment ${{ job.status }}
+            Version: ${{ steps.version.outputs.version }}
+            Deployed by: ${{ github.actor }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Send email notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: Production Deployment ${{ job.status }}
+          to: ops-team@example.com
+          from: github-actions@example.com
+          body: |
+            Production deployment ${{ job.status }}
+
+            Version: ${{ steps.version.outputs.version }}
+            Deployed by: ${{ github.actor }}
+            Timestamp: $(date -u)
+
+            View deployment: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

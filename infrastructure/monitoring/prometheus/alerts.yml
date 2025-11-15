@@ -1,0 +1,261 @@
+# Prometheus Alerting Rules
+# Define alerts for critical system conditions
+
+groups:
+  - name: api_alerts
+    interval: 30s
+    rules:
+      # High error rate alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            /
+            sum(rate(http_requests_total[5m])) by (service)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "High error rate detected for {{ $labels.service }}"
+          description: "{{ $labels.service }} has error rate of {{ $value | humanizePercentage }} (threshold: 5%)"
+          runbook_url: "https://docs.example.com/runbooks/high-error-rate"
+
+      # Slow response time alert
+      - alert: SlowResponseTime
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Slow response time for {{ $labels.service }}"
+          description: "{{ $labels.service }} p95 latency is {{ $value }}s (threshold: 0.5s)"
+
+      # API service down
+      - alert: APIServiceDown
+        expr: up{job="fastapi"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "API service is down"
+          description: "FastAPI service {{ $labels.instance }} has been down for more than 1 minute"
+          runbook_url: "https://docs.example.com/runbooks/service-down"
+
+      # High request rate (potential DDoS)
+      - alert: HighRequestRate
+        expr: |
+          sum(rate(http_requests_total[1m])) by (service) > 10000
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Unusually high request rate detected"
+          description: "{{ $labels.service }} receiving {{ $value }} requests/sec (threshold: 10000)"
+
+  - name: database_alerts
+    interval: 30s
+    rules:
+      # Database connection pool exhaustion
+      - alert: DatabaseConnectionPoolHigh
+        expr: |
+          database_connections_active / database_connections_max > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Database connection pool usage high"
+          description: "Database connection pool at {{ $value | humanizePercentage }} capacity"
+
+      # Slow database queries
+      - alert: SlowDatabaseQueries
+        expr: |
+          rate(database_query_duration_seconds_sum[5m])
+          /
+          rate(database_query_duration_seconds_count[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query time is {{ $value }}s (threshold: 0.1s)"
+
+      # Database down
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "Database {{ $labels.instance }} has been unreachable for 1 minute"
+
+  - name: cache_alerts
+    interval: 30s
+    rules:
+      # Low cache hit rate
+      - alert: LowCacheHitRate
+        expr: |
+          (
+            sum(rate(cache_hits_total[5m]))
+            /
+            (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m])))
+          ) < 0.6
+        for: 15m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is {{ $value | humanizePercentage }} (threshold: 60%)"
+
+      # Redis down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "Redis cache is down"
+          description: "Redis instance {{ $labels.instance }} has been unreachable for 1 minute"
+
+      # High Redis memory usage
+      - alert: RedisHighMemory
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis using {{ $value | humanizePercentage }} of available memory"
+
+  - name: auth_alerts
+    interval: 30s
+    rules:
+      # High authentication failure rate
+      - alert: HighAuthFailureRate
+        expr: |
+          (
+            sum(rate(auth_failures_total[5m]))
+            /
+            sum(rate(auth_attempts_total[5m]))
+          ) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Auth failure rate is {{ $value | humanizePercentage }} (threshold: 30%)"
+
+      # Potential brute force attack
+      - alert: PotentialBruteForce
+        expr: |
+          sum(rate(auth_failures_total[1m])) by (ip_address) > 10
+        for: 2m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Potential brute force attack detected"
+          description: "IP {{ $labels.ip_address }} has {{ $value }} failed auth attempts per minute"
+
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes)
+            /
+            node_memory_MemTotal_bytes
+          ) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}% (threshold: 85%)"
+
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: |
+          (
+            (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.lxcfs"}
+            /
+            node_filesystem_size_bytes) * 100
+          ) < 15
+        for: 5m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk {{ $labels.device }} has only {{ $value }}% free space"
+
+      # Container restart alert
+      - alert: ContainerRestarting
+        expr: |
+          rate(container_restart_count[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} is restarting"
+          description: "Container has restarted {{ $value }} times in the last 15 minutes"
+
+  - name: business_metrics_alerts
+    interval: 1m
+    rules:
+      # No requests received (potential outage)
+      - alert: NoTraffic
+        expr: |
+          sum(rate(http_requests_total[5m])) == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: backend
+        annotations:
+          summary: "No traffic received"
+          description: "No HTTP requests in the last 5 minutes - potential outage"
+
+      # Unusual traffic spike
+      - alert: TrafficSpike
+        expr: |
+          sum(rate(http_requests_total[5m])) >
+          1.5 * avg_over_time(sum(rate(http_requests_total[5m]))[1h:5m])
+        for: 5m
+        labels:
+          severity: info
+          team: backend
+        annotations:
+          summary: "Traffic spike detected"
+          description: "Traffic is 50% above normal levels: {{ $value }} req/s"

@@ -1,0 +1,79 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          export KUBECONFIG=$(pwd)/kubeconfig
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl set image deployment/api-python \
+            api-python=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api-python:${{ github.sha }} \
+            -n staging
+
+          kubectl rollout status deployment/api-python -n staging --timeout=300s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n staging
+          kubectl get svc -n staging
+
+      - name: Run smoke tests
+        run: |
+          STAGING_URL="https://staging.example.com"
+
+          # Health check
+          response=$(curl -s -o /dev/null -w "%{http_code}" $STAGING_URL/api/v1/health)
+          if [ $response != "200" ]; then
+            echo "Health check failed with status $response"
+            exit 1
+          fi
+
+          # Readiness check
+          response=$(curl -s -o /dev/null -w "%{http_code}" $STAGING_URL/api/v1/health/ready)
+          if [ $response != "200" ]; then
+            echo "Readiness check failed with status $response"
+            exit 1
+          fi
+
+          echo "Smoke tests passed!"
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          kubectl rollout undo deployment/api-python -n staging
+          echo "Deployment failed, rolled back to previous version"
+
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Staging deployment ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
