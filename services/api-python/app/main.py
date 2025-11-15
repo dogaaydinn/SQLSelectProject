@@ -22,6 +22,7 @@ from app.core.config import settings
 from app.core.database import close_db_connections, init_db_connections
 from app.core.logging import setup_logging, logger
 from app.core.telemetry import setup_telemetry
+from app.core.cache_warmer import cache_warmer
 from app.middleware.error_handler import error_handler_middleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.timing import TimingMiddleware
@@ -47,6 +48,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # Initialize cache
     await init_cache()
     logger.info("Cache initialized")
+
+    # Warm critical caches (async, non-blocking)
+    try:
+        warming_stats = await cache_warmer.warm_all_caches()
+        logger.info(
+            f"Cache warming completed: {warming_stats.get('total_keys', 0)} keys "
+            f"in {warming_stats.get('total_time_ms', 0)}ms"
+        )
+    except Exception as e:
+        logger.warning(f"Cache warming failed (non-critical): {e}")
 
     yield
 

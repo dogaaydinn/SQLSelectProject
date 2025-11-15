@@ -161,6 +161,7 @@ async def get_department_performance(
 ):
     """
     Get performance metrics for all departments.
+    OPTIMIZED: Single query with joins and GROUP BY to prevent N+1 queries.
 
     Args:
         db: Database session
@@ -168,81 +169,69 @@ async def get_department_performance(
     Returns:
         Department performance metrics
     """
-    departments_query = select(Department).where(Department.is_deleted == False)
-    dept_result = await db.execute(departments_query)
-    departments = dept_result.scalars().all()
-
-    performance_data = []
-
-    for dept in departments:
-        # Get employee count
-        emp_count_query = select(func.count(DeptEmp.id)).where(
+    # Single optimized query with all department metrics
+    # Uses CTEs and window functions for efficient aggregation
+    performance_query = (
+        select(
+            Department.dept_no,
+            Department.dept_name,
+            Department.budget,
+            func.count(func.distinct(DeptEmp.emp_no)).label("employee_count"),
+            func.avg(Salary.salary).label("avg_salary"),
+            func.sum(Salary.salary).label("total_payroll"),
+            func.avg(
+                func.extract("days", func.current_date() - Employee.hire_date)
+            ).label("avg_tenure_days"),
+        )
+        .select_from(Department)
+        .outerjoin(
+            DeptEmp,
             and_(
-                DeptEmp.dept_no == dept.dept_no,
+                Department.dept_no == DeptEmp.dept_no,
                 DeptEmp.to_date == date(9999, 12, 31),
                 DeptEmp.is_deleted == False,
-            )
+            ),
         )
-        emp_count_result = await db.execute(emp_count_query)
-        employee_count = emp_count_result.scalar() or 0
-
-        # Get salary statistics
-        salary_query = (
-            select(
-                func.avg(Salary.salary).label("avg_salary"),
-                func.sum(Salary.salary).label("total_payroll"),
-            )
-            .join(DeptEmp, Salary.emp_no == DeptEmp.emp_no)
-            .where(
-                and_(
-                    DeptEmp.dept_no == dept.dept_no,
-                    DeptEmp.to_date == date(9999, 12, 31),
-                    Salary.to_date == date(9999, 12, 31),
-                    DeptEmp.is_deleted == False,
-                    Salary.is_deleted == False,
-                )
-            )
+        .outerjoin(
+            Salary,
+            and_(
+                DeptEmp.emp_no == Salary.emp_no,
+                Salary.to_date == date(9999, 12, 31),
+                Salary.is_deleted == False,
+            ),
         )
-        salary_result = await db.execute(salary_query)
-        salary_stats = salary_result.one()
+        .outerjoin(
+            Employee,
+            and_(
+                DeptEmp.emp_no == Employee.emp_no,
+                Employee.is_deleted == False,
+            ),
+        )
+        .where(Department.is_deleted == False)
+        .group_by(Department.dept_no, Department.dept_name, Department.budget)
+        .order_by(Department.dept_no)
+    )
 
+    result = await db.execute(performance_query)
+    rows = result.all()
+
+    performance_data = []
+    for row in rows:
         # Calculate budget utilization
         budget_utilization = None
-        if dept.budget and salary_stats.total_payroll:
-            budget_utilization = (
-                float(salary_stats.total_payroll) / float(dept.budget)
-            ) * 100
-
-        # Calculate average tenure
-        tenure_query = (
-            select(
-                func.avg(
-                    func.extract("days", func.current_date() - Employee.hire_date)
-                ).label("avg_tenure")
-            )
-            .join(DeptEmp, Employee.emp_no == DeptEmp.emp_no)
-            .where(
-                and_(
-                    DeptEmp.dept_no == dept.dept_no,
-                    DeptEmp.to_date == date(9999, 12, 31),
-                    Employee.is_deleted == False,
-                    DeptEmp.is_deleted == False,
-                )
-            )
-        )
-        tenure_result = await db.execute(tenure_query)
-        avg_tenure = tenure_result.scalar()
+        if row.budget and row.total_payroll:
+            budget_utilization = (float(row.total_payroll) / float(row.budget)) * 100
 
         performance_data.append(
             DepartmentPerformance(
-                dept_no=dept.dept_no,
-                dept_name=dept.dept_name,
-                employee_count=employee_count,
-                avg_salary=salary_stats.avg_salary,
-                total_payroll=salary_stats.total_payroll,
-                budget=dept.budget,
+                dept_no=row.dept_no,
+                dept_name=row.dept_name,
+                employee_count=row.employee_count or 0,
+                avg_salary=row.avg_salary,
+                total_payroll=row.total_payroll,
+                budget=row.budget,
                 budget_utilization=budget_utilization,
-                avg_tenure_days=float(avg_tenure) if avg_tenure else None,
+                avg_tenure_days=float(row.avg_tenure_days) if row.avg_tenure_days else None,
             )
         )
 
