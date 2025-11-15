@@ -4,6 +4,7 @@ Complete CRUD operations for salaries
 """
 
 from datetime import date
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
