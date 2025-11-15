@@ -128,9 +128,12 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
     ALLOWED_FILE_TYPES: List[str] = [".csv", ".xlsx", ".json"]
 
-    # Monitoring
+    # Monitoring & Observability
     JAEGER_AGENT_HOST: str = "localhost"
     JAEGER_AGENT_PORT: int = 6831
+    TRACE_SAMPLE_RATE: float = 1.0  # Sample 100% of traces (adjust for production)
+    APP_NAME: str = "api-python"
+    APP_VERSION: str = "1.0.0"
 
     # Background Tasks
     CELERY_BROKER_URL: Optional[str] = None

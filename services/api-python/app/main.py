@@ -21,6 +21,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import close_db_connections, init_db_connections
 from app.core.logging import setup_logging, logger
+from app.core.telemetry import setup_telemetry
 from app.middleware.error_handler import error_handler_middleware
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.timing import TimingMiddleware
@@ -71,6 +72,9 @@ app = FastAPI(
 # Add rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Initialize OpenTelemetry distributed tracing
+setup_telemetry(app)
 
 # ============================================
 # MIDDLEWARE

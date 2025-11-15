@@ -11,6 +11,7 @@ from prometheus_client import make_asgi_app
 from app.core.config import settings
 from app.core.logging import logger
 from app.core.database import init_db, close_db
+from app.core.telemetry import setup_telemetry
 from app.api.v1.endpoints import analytics, benchmark
 
 
@@ -50,6 +51,9 @@ app = FastAPI(
     description="GPU-accelerated salary analytics using CUDA, cuPy, and cuDF",
     lifespan=lifespan,
 )
+
+# Initialize OpenTelemetry distributed tracing
+setup_telemetry(app)
 
 # CORS middleware
 app.add_middleware(
