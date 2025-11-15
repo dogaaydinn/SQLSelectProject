@@ -1,0 +1,52 @@
+# FastAPI and ASGI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Database
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# CUDA and GPU acceleration
+cupy-cuda12x==12.3.0  # For CUDA 12.x
+cudf-cu12==23.10.0  # RAPIDS cuDF for GPU DataFrames
+numba==0.58.1  # For CUDA kernel compilation
+rmm-cu12==23.10.0  # RAPIDS Memory Manager
+
+# CPU fallback alternatives
+numpy==1.26.2
+pandas==2.1.3
+scipy==1.11.4
+
+# Caching
+redis==5.0.1
+aioredis==2.0.1
+
+# Monitoring and Observability
+prometheus-client==0.19.0
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-exporter-prometheus==0.42b0
+
+# Logging
+python-json-logger==2.0.7
+structlog==23.2.0
+
+# HTTP Client (for calling main API)
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Utilities
+python-dotenv==1.0.0
+pytz==2023.3
+python-dateutil==2.8.2
+
+# Development
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.12.0
+ruff==0.1.7
